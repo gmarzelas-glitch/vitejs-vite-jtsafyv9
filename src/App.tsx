@@ -4,6 +4,7 @@ import { analyzeReceipt } from './services/gemini';
 import { generatePDF } from './utils/pdfGenerator';
 import * as pdfjsLib from 'pdfjs-dist';
 
+// Χρήση σύγχρονου worker για το 2025
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const toGreeklish = (t: string) => {
@@ -52,7 +53,7 @@ export default function App() {
       const result = await analyzeReceipt(imageData);
       setCurrentEntry({
         date: result?.date || new Date().toISOString().split('T')[0],
-        merchantName: result?.merchantName || '',
+        merchantName: (result?.merchantName || '').toUpperCase(),
         totalAmount: result?.totalAmount || '',
         category: result?.category || 'GENERAL',
         receiptImage: imageData
@@ -87,23 +88,23 @@ export default function App() {
           {showReviewForm && (
             <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-t-[15px] border-red-600">
-                <div className="flex items-center justify-between mb-8 italic uppercase font-black">
-                  <h3 className="text-3xl tracking-tighter text-slate-950">Confirm Data</h3>
-                  <button onClick={() => setShowReviewForm(false)} className="text-slate-950"><X size={24}/></button>
+                <div className="flex items-center justify-between mb-8 italic uppercase font-black text-slate-950">
+                  <h3 className="text-3xl tracking-tighter">Confirm Data</h3>
+                  <button onClick={() => setShowReviewForm(false)}><X size={24}/></button>
                 </div>
                 <div className="space-y-4 font-black text-slate-950">
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                    <label className="text-[9px] text-slate-400 block mb-1 uppercase">Merchant</label>
-                    <input className="w-full bg-transparent outline-none text-lg uppercase text-slate-950 font-black" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})} />
+                    <label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Merchant</label>
+                    <input className="w-full bg-transparent outline-none text-lg uppercase font-black" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <label className="text-[9px] text-slate-400 block mb-1 uppercase">Amount</label>
-                      <input type="number" step="0.01" className="w-full bg-transparent outline-none text-lg text-slate-950 font-black" value={currentEntry.totalAmount} onChange={e => setCurrentEntry({...currentEntry, totalAmount: e.target.value})} />
+                      <label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Amount</label>
+                      <input type="number" step="0.01" className="w-full bg-transparent outline-none text-lg font-black" value={currentEntry.totalAmount} onChange={e => setCurrentEntry({...currentEntry, totalAmount: e.target.value})} />
                     </div>
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <label className="text-[9px] text-slate-400 block mb-1 uppercase">Date</label>
-                      <input type="date" className="w-full bg-transparent outline-none text-xs text-slate-950 font-black" value={currentEntry.date} onChange={e => setCurrentEntry({...currentEntry, date: e.target.value})} />
+                      <label className="text-[9px] text-slate-400 block mb-1 uppercase tracking-widest">Date</label>
+                      <input type="date" className="w-full bg-transparent outline-none text-xs font-black" value={currentEntry.date} onChange={e => setCurrentEntry({...currentEntry, date: e.target.value})} />
                     </div>
                   </div>
                   <button onClick={confirmAndAdd} className="w-full bg-red-600 text-white p-6 rounded-[2rem] font-black uppercase italic shadow-2xl text-xl mt-4 border-b-8 border-red-800 active:scale-95 transition-all">Confirm & Add</button>
@@ -126,20 +127,20 @@ export default function App() {
                 <tr><th className="p-8">Date</th><th className="p-8">Vendor</th><th className="p-8 text-right">Amount</th><th className="p-8 text-center">X</th></tr>
               </thead>
               <tbody className="divide-y-2 divide-slate-100 text-slate-950">
-                {expenses.length === 0 ? <tr><td colSpan={4} className="p-24 text-center text-slate-200 italic text-xl">Ready to scan</td></tr> : 
+                {expenses.length === 0 ? <tr><td colSpan={4} className="p-24 text-center text-slate-200 italic text-xl font-black uppercase">Ready to scan</td></tr> : 
                   expenses.map(e => (
-                    <tr key={e.id}>
-                      <td className="p-8 text-center text-slate-400 font-bold italic">{e.date}</td>
-                      <td className="p-8 font-black uppercase">{toGreeklish(e.merchantName)}</td>
+                    <tr key={e.id} className="hover:bg-slate-50 transition-all">
+                      <td className="p-8 text-center text-slate-400 font-bold italic text-xs">{e.date}</td>
+                      <td className="p-8 font-black uppercase text-xs">{toGreeklish(e.merchantName)}</td>
                       <td className="p-8 text-right text-lg italic tracking-tighter font-black">{Number(e.totalAmount).toFixed(2)}</td>
-                      <td className="p-8 text-center"><button onClick={() => setExpenses(expenses.filter(x => x.id !== e.id))} className="text-slate-200 hover:text-red-600 transition-all"><Trash2 size={24}/></button></td>
+                      <td className="p-8 text-center"><button onClick={() => setExpenses(expenses.filter(x => x.id !== e.id))} className="text-slate-200 hover:text-red-600 transition-all hover:scale-110"><Trash2 size={24}/></button></td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
 
-          <button onClick={handleFinalSubmit} disabled={expenses.length === 0} className="w-full bg-slate-950 text-white p-12 rounded-[3rem] font-black text-4xl uppercase italic shadow-2xl hover:bg-red-600 transition-all border-b-8 border-slate-800 flex items-center justify-center gap-8 active:scale-95">
+          <button onClick={handleFinalSubmit} disabled={expenses.length === 0} className="w-full bg-slate-950 text-white p-12 rounded-[3rem] font-black text-4xl uppercase italic shadow-2xl hover:bg-red-600 transition-all border-b-8 border-slate-800 active:scale-95 flex items-center justify-center gap-8">
             <FileText size={48}/> Generate Report
           </button>
         </div>
