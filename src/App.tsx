@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Camera, FileText, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Camera, FileText, Trash2, Plus, CheckCircle2, X } from 'lucide-react';
 import { analyzeReceipt } from './services/gemini';
 import { generatePDF } from './utils/pdfGenerator';
 
@@ -11,6 +11,17 @@ const toGreeklish = (t: string) => {
 export default function App() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // States για το Review Modal
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [currentEntry, setCurrentEntry] = useState({ 
+    date: '', 
+    merchantName: '', 
+    totalAmount: '', 
+    category: 'GENERAL', 
+    receiptImage: '' 
+  });
+
   const [city] = useState('ATHENS');
   const [reportDate] = useState(new Date().toISOString().split('T')[0]);
   const [projects] = useState(['BIND', 'MAGIC', 'ERDERA', 'NEW DDR', 'NEW MAP', 'STRONGER VOICES', 'GENERAL COST']);
@@ -29,12 +40,30 @@ export default function App() {
 
   useEffect(() => { setReportCount(parseInt(selectedEmployee.id) + 1); }, [selectedEmployee]);
 
+  // Λειτουργία Σκαναρίσματος με Προεπισκόπηση
   const handleAddExpense = async (imageData: string) => {
     setIsAnalyzing(true);
     try {
       const result = await analyzeReceipt(imageData);
-      if (result) setExpenses(prev => [...prev, { ...result, id: Date.now().toString(), receiptImage: imageData }]);
+      setCurrentEntry({
+        date: result?.date || new Date().toISOString().split('T')[0],
+        merchantName: result?.merchantName || '',
+        totalAmount: result?.totalAmount || '',
+        category: result?.category || 'GENERAL',
+        receiptImage: imageData
+      });
+      setShowReviewForm(true); // Άνοιγμα Modal για έλεγχο
     } finally { setIsAnalyzing(false); }
+  };
+
+  // Επιβεβαίωση και προσθήκη στη λίστα
+  const confirmAndAdd = () => {
+    if (!currentEntry.merchantName || !currentEntry.totalAmount) {
+      alert("Please enter Merchant Name and Total Amount.");
+      return;
+    }
+    setExpenses(prev => [...prev, { ...currentEntry, id: Date.now().toString() }]);
+    setShowReviewForm(false);
   };
 
   const removeExpense = (id: string) => setExpenses(expenses.filter(e => e.id !== id));
@@ -61,8 +90,53 @@ export default function App() {
         <div className="p-3 bg-red-600 rounded-xl font-bold flex gap-3"><LayoutDashboard size={18}/> Dashboard</div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto bg-slate-50">
+      <main className="flex-1 p-8 overflow-y-auto bg-slate-50 relative">
         <div className="max-w-5xl mx-auto">
+          
+          {/* REVIEW MODAL: Εδώ γίνεται ο έλεγχος πριν την καταχώρηση */}
+          {showReviewForm && (
+            <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl border-t-[12px] border-red-600 animate-in zoom-in duration-200">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="text-red-600" size={28} />
+                    <h3 className="text-2xl font-black italic uppercase tracking-tighter">Review Entry</h3>
+                  </div>
+                  <button onClick={() => setShowReviewForm(false)} className="text-slate-300 hover:text-slate-950"><X size={24}/></button>
+                </div>
+                
+                <div className="space-y-5">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Merchant Name</label>
+                    <input className="w-full bg-slate-100 p-4 rounded-2xl outline-none font-black text-slate-950 focus:ring-2 ring-red-600/20" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Date</label>
+                      <input type="date" className="w-full bg-slate-100 p-4 rounded-2xl outline-none font-black text-slate-950 text-sm focus:ring-2 ring-red-600/20" value={currentEntry.date} onChange={e => setCurrentEntry({...currentEntry, date: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Total Amount (€)</label>
+                      <input type="number" step="0.01" className="w-full bg-slate-100 p-4 rounded-2xl outline-none font-black text-slate-950 focus:ring-2 ring-red-600/20" value={currentEntry.totalAmount} onChange={e => setCurrentEntry({...currentEntry, totalAmount: e.target.value})} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Category</label>
+                    <select className="w-full bg-slate-100 p-4 rounded-2xl outline-none font-black text-slate-950 focus:ring-2 ring-red-600/20" value={currentEntry.category} onChange={e => setCurrentEntry({...currentEntry, category: e.target.value})}>
+                      <option value="GENERAL">GENERAL</option>
+                      <option value="MEALS">MEALS</option>
+                      <option value="TRANSPORT">TRANSPORT</option>
+                      <option value="ACCOMMODATION">ACCOMMODATION</option>
+                      <option value="OTHER COST">OTHER COST</option>
+                    </select>
+                  </div>
+                  <button onClick={confirmAndAdd} className="w-full bg-red-600 text-white p-5 rounded-2xl font-black uppercase italic shadow-xl shadow-red-600/20 hover:bg-red-700 transition-all mt-4">Confirm & Add to List</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Header Dashboard */}
           <div className="flex justify-between border-b pb-6 mb-8 text-[11px] font-bold uppercase bg-white p-6 rounded-2xl shadow-sm">
             <div><span className="text-slate-400 block mb-1">Claimant</span>
               <select className="bg-transparent font-black" value={selectedEmployee.id} onChange={e => setSelectedEmployee(employees.find(emp => emp.id === e.target.value) || employees[0])}>{employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
@@ -76,16 +150,23 @@ export default function App() {
 
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-black uppercase border-l-8 border-red-600 pl-4 italic">Reimbursements</h2>
-            <button onClick={() => document.getElementById('fileInput')?.click()} className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-3 shadow-2xl hover:bg-red-600 transition-all">
-              <Camera size={20} className="text-red-600"/> {isAnalyzing ? 'SCANNING...' : 'SCAN RECEIPT'}
-            </button>
+            <div className="flex gap-4">
+              {/* Νέο κουμπί Χειροκίνητης Προσθήκης */}
+              <button onClick={() => { setCurrentEntry({ date: new Date().toISOString().split('T')[0], merchantName: '', totalAmount: '', category: 'GENERAL', receiptImage: '' }); setShowReviewForm(true); }} className="bg-white text-slate-950 border-2 border-slate-950 px-6 py-4 rounded-2xl font-black text-[10px] flex items-center gap-3 hover:bg-slate-50 transition-all uppercase tracking-widest">
+                <Plus size={16} /> Manual Add
+              </button>
+              <button onClick={() => document.getElementById('fileInput')?.click()} className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-3 shadow-2xl hover:bg-red-600 transition-all">
+                <Camera size={20} className="text-red-600"/> {isAnalyzing ? 'SCANNING...' : 'SCAN RECEIPT'}
+              </button>
+            </div>
             <input id="fileInput" type="file" className="hidden" onChange={e => {const f = e.target.files?.[0]; if(f){const r = new FileReader(); r.onload = () => handleAddExpense(r.result as string); r.readAsDataURL(f);}}}/>
           </div>
 
+          {/* Πίνακας Εξόδων */}
           <div className="bg-white border-2 border-slate-950 rounded-3xl overflow-hidden mb-8 shadow-2xl">
             <table className="w-full text-left">
               <thead className="bg-slate-950 text-white text-[10px] font-black uppercase tracking-widest border-b-2 border-red-600">
-                <tr><th className="p-5 w-[15%] text-center">Date</th><th className="p-5 w-[60%]">Merchant & Category</th><th className="p-5 w-[15%] text-right">Amount</th><th className="p-5 w-[10%] text-center">-</th></tr>
+                <tr><th className="p-5 w-[15%] text-center">Date</th><th className="p-5 w-[55%]">Merchant & Category</th><th className="p-5 w-[15%] text-right">Amount</th><th className="p-5 w-[10%] text-center">-</th></tr>
               </thead>
               <tbody className="divide-y text-[11px]">
                 {expenses.length === 0 ? <tr><td colSpan={4} className="p-20 text-center text-slate-300 font-black italic">Ready for Scan</td></tr> : 
@@ -99,6 +180,8 @@ export default function App() {
                   ))}
               </tbody>
             </table>
+            
+            {/* Breakdown & Total */}
             <div className="p-10 bg-slate-50 border-t-4 border-slate-950 flex justify-between items-end">
                <div className="space-y-2">
                 <span className="text-[10px] font-black uppercase text-red-600 tracking-widest block mb-2 underline decoration-slate-950 underline-offset-4 italic">Breakdown</span>
