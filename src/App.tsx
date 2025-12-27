@@ -71,6 +71,11 @@ export default function App() {
         const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(file);
       })];
       const result = await analyzeReceipt(imageList);
+      if (!result) throw new Error("AI fail");
+      
+      const exists = expenses.find(exp => exp.merchantName === result.merchantName && exp.totalAmount === parseFloat(result.totalAmount));
+      if (exists) setDuplicateWarning(true);
+
       setCurrentEntry({
         date: result?.date || new Date().toISOString().split('T')[0],
         merchantName: (result?.merchantName || '').toUpperCase(),
@@ -79,7 +84,7 @@ export default function App() {
         receiptImage: imageList[0]
       });
       setShowReviewForm(true);
-    } catch (err) { alert("Scan Error."); } finally { setIsAnalyzing(false); }
+    } catch (err) { alert("AI Scan Error. Check Key."); } finally { setIsAnalyzing(false); }
   };
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +95,7 @@ export default function App() {
         const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(file);
       })];
       setSupportingDocs(prev => [...prev, ...images]);
-      alert("Doc added.");
+      alert("Attachment added.");
     } catch (err) { alert("Error adding doc."); }
   };
 
@@ -152,33 +157,32 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 italic uppercase font-black tracking-tighter mb-20">
-            <button onClick={() => generatePDF(expenses, [...expenses.map(e=>e.receiptImage||''), ...supportingDocs], user, reportCounter, destination, purpose)} className="bg-[#0f172a] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-slate-800 transition-all border-b-[12px] border-black flex items-center justify-center gap-6 group">
+            <button onClick={() => generatePDF(expenses, [...expenses.map(e=>e.receiptImage||''), ...supportingDocs], user, reportCounter, destination, purpose)} className="bg-[#0f172a] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-slate-800 transition-all border-b-[12px] border-black flex items-center justify-center gap-6">
               <FileText size={48}/> Generate PDF
             </button>
-            <button onClick={() => window.location.href = `mailto:finance@duchennedatafoundation.org?subject=Expense Report ${reportCounter}`} className="bg-[#dc2626] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-[#b91c1c] transition-all border-b-[12px] border-[#991b1b] flex items-center justify-center gap-6 group">
+            <button onClick={() => window.location.href = `mailto:finance@duchennedatafoundation.org?subject=Expense Report ${reportCounter}`} className="bg-[#dc2626] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-[#b91c1c] transition-all border-b-[12px] border-[#991b1b] flex items-center justify-center gap-6">
               <Send size={48}/> Send Report
             </button>
           </div>
         </div>
 
-        {/* Modal Bank Details */}
         {showSettings && (
           <div className="fixed inset-0 bg-[#0f172a]/98 backdrop-blur-3xl z-[60] flex items-center justify-center p-6">
             <div className="bg-white rounded-[4rem] p-12 max-w-xl w-full shadow-2xl font-black italic uppercase tracking-tighter">
               <div className="flex items-center justify-between mb-10 border-b-4 border-slate-100 pb-6"><h3 className="text-4xl text-[#0f172a]">Bank Details</h3><button onClick={() => setShowSettings(false)} className="bg-slate-100 p-4 rounded-full"><X size={32}/></button></div>
               <div className="space-y-4">
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">IBAN Number</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.iban} onChange={e => setUser({...user, iban: e.target.value.toUpperCase()})}/></div>
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Bank Name</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.bankName} onChange={e => setUser({...user, bankName: e.target.value.toUpperCase()})}/></div>
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Bank Name</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.bankName} placeholder="EUROBANK" onChange={e => setUser({...user, bankName: e.target.value.toUpperCase()})}/></div>
               </div>
               <button onClick={() => setShowSettings(false)} className="w-full bg-[#0f172a] text-white p-8 rounded-[2.5rem] mt-10 hover:bg-[#dc2626] transition-all border-b-8 border-slate-800 flex items-center justify-center gap-4 text-xl"><Save size={24}/> Save Settings</button>
             </div>
           </div>
         )}
 
-        {/* Modal Review */}
         {showReviewForm && (
           <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-2xl z-50 flex items-center justify-center p-6 animate-in">
             <div className="bg-white rounded-[4rem] p-12 max-w-xl w-full border-t-[20px] border-[#dc2626] shadow-2xl relative font-black italic uppercase tracking-tighter">
+              {duplicateWarning && <div className="absolute top-[-60px] left-0 right-0 bg-yellow-400 p-4 rounded-2xl flex items-center gap-3 text-[10px] shadow-2xl animate-bounce"><AlertCircle size={20}/> Duplicate Entry!</div>}
               <div className="flex items-center justify-between mb-8"><h3 className="text-3xl text-[#0f172a]">Confirm Expense</h3><button onClick={() => setShowReviewForm(false)}><X size={32}/></button></div>
               <div className="space-y-4">
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Merchant</label><input className="w-full bg-transparent outline-none text-2xl text-[#0f172a]" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})}/></div>

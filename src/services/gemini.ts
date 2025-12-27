@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Βάζουμε το κλειδί απευθείας εδώ για να είμαστε σίγουροι ότι το βλέπει
-const HARDCODED_KEY = "AIzaSyDh9RuXuIU4oBI6z0PC-mOvpe28KmgQ-lA";
+// ΤΟ ΚΛΕΙΔΙ ΣΟΥ ΕΙΝΑΙ ΕΔΩ - ΔΕΝ ΧΡΕΙΑΖΕΤΑΙ ΤΟ .env ΤΩΡΑ
+const API_KEY = "AIzaSyDh9RuXuIU4oBI6z0PC-mOvpe28KmgQ-lA";
 
 export async function analyzeReceipt(imagesBase64: string[]) {
   try {
-    const genAI = new GoogleGenerativeAI(HARDCODED_KEY);
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    // Χρησιμοποιούμε το 1.5 Flash για ταχύτητα και αξιοπιστία
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const imageParts = imagesBase64.map(img => ({
@@ -15,21 +16,23 @@ export async function analyzeReceipt(imagesBase64: string[]) {
       }
     }));
 
-    const prompt = `Analyze ALL provided pages. Find the ABSOLUTE FINAL TOTAL PAYABLE AMOUNT. 
-    On Aegean Invoices, DO NOT pick the fare (e.g. 201.00). Pick the final charged sum (e.g. 291.12).
-    Extract:
-    1. merchantName: Full legal entity (e.g. AEGEAN AIRLINES S.A.)
-    2. date: YYYY-MM-DD
-    3. totalAmount: Final payable sum (number only)
-    4. category: Strictly one of [Meals, Transportation, Accommodation, Subscriptions & Memberships, Other Cost]
+    const prompt = `You are a Senior Financial Auditor. Analyze ALL pages of this document.
+    1. merchantName: Full legal entity (e.g., AEGEAN AIRLINES S.A.). Keep Greek if present.
+    2. date: Extract in YYYY-MM-DD format.
+    3. totalAmount: CRITICAL! Look for the FINAL PAYABLE TOTAL. 
+       - On Aegean tickets, IGNORE net fares (e.g. 201.00). 
+       - PICK THE FINAL SUM (e.g. 291.12).
+    4. category: Strictly one of: Meals, Transportation, Accommodation, Subscriptions & Memberships, Other Cost.
 
-    Return JSON ONLY: {"merchantName": "...", "date": "...", "totalAmount": "...", "category": "..."}`;
+    Return ONLY a raw JSON object. No markdown.`;
 
     const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    return JSON.parse(response.text().replace(/```json|```/g, ""));
+    const responseText = result.response.text().trim();
+    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    
+    return JSON.parse(cleanJson);
   } catch (error) {
-    console.error("AI Error:", error);
+    console.error("Gemini OCR Error:", error);
     return null;
   }
 }
