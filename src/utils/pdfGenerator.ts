@@ -1,96 +1,95 @@
 import { jsPDF } from 'jspdf';
+import { Expense, User } from '../types';
 
 const toGreeklish = (text: string) => {
   const map: any = {'Α':'A','Β':'B','Γ':'G','Δ':'D','Ε':'E','Ζ':'Z','Η':'H','Θ':'TH','Ι':'I','Κ':'K','Λ':'L','Μ':'M','Ν':'N','Ξ':'X','Ο':'O','Π':'P','Ρ':'R','Σ':'S','Τ':'T','Υ':'Y','Φ':'F','Χ':'CH','Ψ':'PS','Ω':'O','α':'a','β':'b','γ':'g','δ':'d','ε':'e','ζ':'z','η':'h','θ':'th','ι':'i','κ':'k','λ':'l','μ':'m','ν':'n','ξ':'x','ο':'o','π':'p','ρ':'r','σ':'s','τ':'t','υ':'y','φ':'f','χ':'ch','ψ':'ps','ω':'o','ά':'a','έ':'e','ή':'h','ί':'i','ό':'o','ύ':'y','ώ':'o'};
   return text ? text.split('').map(char => map[char] || char).join('') : "";
 };
 
-export const generatePDF = async (expenses: any[], receiptImages: string[], reportInfo: any, manualID: string) => {
+export const generatePDF = async (
+  expenses: Expense[], 
+  images: string[], 
+  user: User, 
+  reportId: string,
+  destination: string,
+  purpose: string
+) => {
   const doc = new jsPDF();
-  const total = expenses.reduce((sum, exp) => sum + Number(exp.totalAmount), 0);
-  const formattedID = manualID.padStart(4, '0');
-  const timestamp = new Date().toLocaleString('el-GR');
-
-  const categoryTotals = expenses.reduce((acc: any, exp: any) => {
-    const cat = toGreeklish(exp.category || 'GENERAL').toUpperCase();
-    acc[cat] = (acc[cat] || 0) + Number(exp.totalAmount);
+  const total = expenses.reduce((sum, e) => sum + e.totalAmount, 0);
+  const formattedID = reportId.padStart(4, '0');
+  const categoryTotals = expenses.reduce((acc: any, exp: Expense) => {
+    const cat = toGreeklish(exp.category).toUpperCase();
+    acc[cat] = (acc[cat] || 0) + exp.totalAmount;
     return acc;
   }, {});
 
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, 0, 210, 60, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text('DDF REIMBURSEMENTS FORM', 105, 18, { align: 'center' });
-  
-  doc.setFontSize(14);
-  doc.text(toGreeklish(reportInfo.name).toUpperCase(), 105, 30, { align: 'center' });
-  doc.text(toGreeklish(reportInfo.project).toUpperCase(), 105, 38, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`DATE: ${reportInfo.date} | REPORT ID: ${formattedID}`, 105, 48, { align: 'center' });
+  // Header Banner
+  doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 85, 'F');
+  doc.setTextColor(220, 38, 38); doc.setFont('helvetica', 'bold'); doc.setFontSize(28);
+  doc.text('DDF', 15, 22);
+  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.text('EXPENSE REIMBURSEMENT SYSTEM', 15, 30);
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.text(`REPORT ID: #${formattedID}`, 195, 30, { align: 'right' });
 
-  let y = 80;
-  doc.setFillColor(220, 38, 38);
-  doc.rect(15, y - 5, 180, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.text('DATE', 18, y);
-  doc.text('VENDOR & CATEGORY', 50, y);
-  doc.text('AMOUNT', 192, y, { align: 'right' });
-
-  doc.setTextColor(0, 0, 0);
-  y += 10;
-  expenses.forEach((exp) => {
-    doc.setFontSize(10);
-    doc.text(exp.date, 18, y);
-    const merchant = toGreeklish(exp.merchantName).toUpperCase();
-    const splitMerchant = doc.splitTextToSize(merchant, 95); 
-    doc.setFont('helvetica', 'bold');
-    doc.text(splitMerchant, 50, y);
-    const lines = splitMerchant.length;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.text(toGreeklish(exp.category || 'GENERAL').toUpperCase(), 50, y + (lines * 4.5));
-    doc.setFontSize(10);
-    doc.text(Number(exp.totalAmount).toFixed(2), 192, y, { align: 'right' });
-    y += (lines * 5) + 8;
-  });
-
-  y += 5;
-  doc.setFillColor(220, 38, 38);
-  doc.rect(120, y, 75, Object.keys(categoryTotals).length * 7 + 12, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.text('COST BREAKDOWN', 125, y + 6);
-  let breakY = y + 13;
-  Object.entries(categoryTotals).forEach(([cat, val]: any) => {
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${cat}:`, 125, breakY);
-    doc.text(`${val.toFixed(2)}`, 190, breakY, { align: 'right' });
-    breakY += 7;
-  });
-
-  y = breakY + 5;
-  doc.setFillColor(220, 38, 38);
-  doc.rect(15, y, 180, 12, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
-  doc.text('GRAND TOTAL CLAIM', 20, y + 8);
-  doc.text(`${total.toFixed(2)} EUR`, 190, y + 8, { align: 'right' });
-
-  y += 20;
+  // Identity
   doc.setFontSize(9);
-  doc.setTextColor(180, 0, 0);
-  doc.setFont('helvetica', 'bolditalic');
-  doc.text(`DIGITALLY GENERATED & AUDIT VERIFIED: ${timestamp}`, 15, y);
+  doc.text(`ACTIVE USER: ${toGreeklish(user.name).toUpperCase()}`, 15, 38);
+  doc.text(`PROJECT: ${toGreeklish(localStorage.getItem('ddf_project') || 'N/A').toUpperCase()}`, 15, 44);
+  doc.text(`DESTINATION: ${toGreeklish(destination || 'N/A').toUpperCase()}`, 15, 50);
+  doc.text(`PURPOSE: ${toGreeklish(purpose || 'N/A').toUpperCase()}`, 15, 56);
 
-  receiptImages.forEach((img, i) => {
+  // Metadata with space
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.text(`GENERATED ON: ${new Date().toLocaleDateString('el-GR')}`, 15, 68); 
+  doc.text(`TIMESTAMP: ${new Date().toLocaleTimeString('el-GR')}`, 15, 73);
+
+  // Table
+  let y = 95;
+  doc.setFillColor(15, 23, 42); doc.rect(15, y - 6, 180, 10, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('DATE', 18, y); doc.text('CATEGORY / VENDOR', 50, y); doc.text('AMOUNT (EUR)', 192, y, { align: 'right' });
+
+  doc.setTextColor(15, 23, 42); y += 10;
+  expenses.forEach((e) => {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'normal'); doc.text(e.date, 18, y);
+    doc.setFont('helvetica', 'bold'); doc.text(toGreeklish(e.merchantName).toUpperCase(), 50, y);
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+    doc.text(toGreeklish(e.category).toUpperCase(), 50, y + 4);
+    doc.setTextColor(15, 23, 42); doc.setFontSize(10); doc.text(e.totalAmount.toFixed(2), 192, y, { align: 'right' });
+    y += 14;
+  });
+
+  // Breakdown & Total
+  y += 5;
+  doc.setDrawColor(226, 232, 240); doc.line(120, y, 195, y);
+  y += 8; doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('CATEGORY BREAKDOWN:', 120, y);
+  y += 6;
+  Object.entries(categoryTotals).forEach(([cat, val]: any) => {
+    doc.setFont('helvetica', 'normal'); doc.text(`${cat}:`, 120, y);
+    doc.text(`${val.toFixed(2)}`, 195, y, { align: 'right' });
+    y += 5;
+  });
+
+  y += 5; doc.setFillColor(15, 23, 42); doc.rect(15, y, 180, 10, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('GRAND TOTAL CLAIM', 20, y + 6.5);
+  doc.text(`${total.toFixed(2)} EUR`, 192, y + 6.5, { align: 'right' });
+
+  // Bank Info
+  y += 35; doc.setTextColor(15, 23, 42); doc.setFontSize(9);
+  doc.text(`BANK: ${toGreeklish(user.bankName || 'N/A').toUpperCase()}`, 15, y);
+  y += 6; doc.text(`IBAN: ${user.iban || 'PENDING'}`, 15, y);
+
+  // Attachments
+  images.forEach((img, i) => {
     doc.addPage();
-    doc.addImage(img, 'JPEG', 15, 20, 180, 240);
+    doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 10, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(7);
+    doc.text(`ATTACHMENT #${i + 1} - REPORT ID: ${formattedID}`, 105, 6.5, { align: 'center' });
+    doc.addImage(img, 'JPEG', 15, 15, 180, 250, undefined, 'FAST');
   });
 
   doc.save(`DDF_Report_${formattedID}.pdf`);
-  return { total };
 };
