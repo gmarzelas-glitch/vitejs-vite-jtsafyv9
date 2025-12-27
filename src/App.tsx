@@ -82,7 +82,6 @@ export default function App() {
     } catch (err) { alert("Scan Error."); } finally { setIsAnalyzing(false); }
   };
 
-  // Η ΣΥΝΑΡΤΗΣΗ ΠΟΥ ΕΛΕΙΠΕ
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -113,8 +112,8 @@ export default function App() {
               <h2 className="text-4xl lg:text-7xl tracking-tighter border-l-[15px] border-[#dc2626] pl-8 leading-none">Expenses <span className="text-slate-300">#{reportCounter}</span></h2>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <button onClick={() => document.getElementById('uInput')?.click()} className="flex-1 bg-[#dc2626] text-white px-8 py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3">{isAnalyzing ? <Loader2 className="animate-spin" size={20}/> : <Camera size={20}/>} Scan Expense</button>
-              <button onClick={() => document.getElementById('docInput')?.click()} className="flex-1 bg-[#0f172a] text-white px-8 py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3"><Paperclip size={20}/> Add Doc</button>
+              <button onClick={() => document.getElementById('uInput')?.click()} className="flex-1 bg-[#dc2626] text-white px-8 py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3">{isAnalyzing ? <Loader2 className="animate-spin" size={20}/> : <Camera size={20}/>} SCAN EXPENSE</button>
+              <button onClick={() => document.getElementById('docInput')?.click()} className="flex-1 bg-[#0f172a] text-white px-8 py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3"><Paperclip size={20}/> ADD DOC</button>
             </div>
           </div>
 
@@ -138,42 +137,45 @@ export default function App() {
                 <tr><th className="p-8">Date</th><th className="p-8 text-center">Category</th><th className="p-8">Vendor</th><th className="p-8 text-right">Amount</th><th className="p-8 text-center">X</th></tr>
               </thead>
               <tbody className="divide-y-4 divide-slate-50">
-                {expenses.map(e => (
-                  <tr key={e.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-8 text-slate-400">{e.date}</td>
-                    <td className="p-8 text-center"><span className="bg-slate-100 px-3 py-1 rounded-full text-[8px] border border-slate-200">{e.category}</span></td>
-                    <td className="p-8 text-xs">{toGreeklish(e.merchantName)}</td>
-                    <td className="p-8 text-right text-3xl text-[#0f172a]">€{e.totalAmount.toFixed(2)}</td>
-                    <td className="p-8 text-center"><button onClick={() => setExpenses(expenses.filter(x => x.id !== e.id))} className="text-slate-200 hover:text-[#dc2626] transition-all"><Trash2 size={24}/></button></td>
-                  </tr>
-                ))}
+                {expenses.length === 0 ? <tr><td colSpan={5} className="p-32 text-center text-slate-200 text-2xl opacity-40">Ready to Scan</td></tr> : 
+                  expenses.map(e => (
+                    <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-8 text-slate-400">{e.date}</td>
+                      <td className="p-8 text-center"><span className="bg-slate-100 px-3 py-1 rounded-full text-[8px] border border-slate-200">{e.category}</span></td>
+                      <td className="p-8 text-xs">{toGreeklish(e.merchantName)}</td>
+                      <td className="p-8 text-right text-3xl text-[#0f172a]">€{e.totalAmount.toFixed(2)}</td>
+                      <td className="p-8 text-center"><button onClick={() => setExpenses(expenses.filter(x => x.id !== e.id))} className="text-slate-200 hover:text-[#dc2626] transition-all"><Trash2 size={24}/></button></td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 italic uppercase font-black tracking-tighter mb-20">
-            <button onClick={() => generatePDF(expenses, [...expenses.map(e=>e.receiptImage||''), ...supportingDocs], user, reportCounter, destination, purpose)} className="bg-[#0f172a] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-slate-800 transition-all border-b-[12px] border-black flex items-center justify-center gap-6">
+            <button onClick={() => generatePDF(expenses, [...expenses.map(e=>e.receiptImage||''), ...supportingDocs], user, reportCounter, destination, purpose)} className="bg-[#0f172a] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-slate-800 transition-all border-b-[12px] border-black flex items-center justify-center gap-6 group">
               <FileText size={48}/> Generate PDF
             </button>
-            <button onClick={() => window.location.href = `mailto:finance@duchennedatafoundation.org?subject=Expense Report ${reportCounter}`} className="bg-[#dc2626] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-[#b91c1c] transition-all border-b-[12px] border-[#991b1b] flex items-center justify-center gap-6">
+            <button onClick={() => window.location.href = `mailto:finance@duchennedatafoundation.org?subject=Expense Report ${reportCounter}`} className="bg-[#dc2626] text-white p-12 rounded-[3.5rem] text-4xl shadow-2xl hover:bg-[#b91c1c] transition-all border-b-[12px] border-[#991b1b] flex items-center justify-center gap-6 group">
               <Send size={48}/> Send Report
             </button>
           </div>
         </div>
 
+        {/* Modal Bank Details */}
         {showSettings && (
           <div className="fixed inset-0 bg-[#0f172a]/98 backdrop-blur-3xl z-[60] flex items-center justify-center p-6">
             <div className="bg-white rounded-[4rem] p-12 max-w-xl w-full shadow-2xl font-black italic uppercase tracking-tighter">
               <div className="flex items-center justify-between mb-10 border-b-4 border-slate-100 pb-6"><h3 className="text-4xl text-[#0f172a]">Bank Details</h3><button onClick={() => setShowSettings(false)} className="bg-slate-100 p-4 rounded-full"><X size={32}/></button></div>
               <div className="space-y-4">
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">IBAN Number</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.iban} onChange={e => setUser({...user, iban: e.target.value.toUpperCase()})}/></div>
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Bank Name</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.bankName} placeholder="EUROBANK" onChange={e => setUser({...user, bankName: e.target.value.toUpperCase()})}/></div>
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Bank Name</label><input className="w-full bg-transparent outline-none text-xl text-[#0f172a]" value={user.bankName} onChange={e => setUser({...user, bankName: e.target.value.toUpperCase()})}/></div>
               </div>
               <button onClick={() => setShowSettings(false)} className="w-full bg-[#0f172a] text-white p-8 rounded-[2.5rem] mt-10 hover:bg-[#dc2626] transition-all border-b-8 border-slate-800 flex items-center justify-center gap-4 text-xl"><Save size={24}/> Save Settings</button>
             </div>
           </div>
         )}
 
+        {/* Modal Review */}
         {showReviewForm && (
           <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-2xl z-50 flex items-center justify-center p-6 animate-in">
             <div className="bg-white rounded-[4rem] p-12 max-w-xl w-full border-t-[20px] border-[#dc2626] shadow-2xl relative font-black italic uppercase tracking-tighter">
@@ -182,7 +184,7 @@ export default function App() {
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Merchant</label><input className="w-full bg-transparent outline-none text-2xl text-[#0f172a]" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})}/></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Amount (EUR)</label><input type="number" step="0.01" className="w-full bg-transparent outline-none text-2xl text-[#0f172a]" value={currentEntry.totalAmount} onChange={e => setCurrentEntry({...currentEntry, totalAmount: parseFloat(e.target.value) || 0})}/></div>
-                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Category</label><select className="w-full bg-transparent outline-none text-lg text-[#0f172a]" value={currentEntry.category} onChange={e => setCurrentEntry({...currentEntry, category: e.target.value as Expense['category']})}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Category</label><select className="w-full bg-transparent outline-none text-lg text-[#0f172a] appearance-none" value={currentEntry.category} onChange={e => setCurrentEntry({...currentEntry, category: e.target.value as Expense['category']})}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                 </div>
                 <button onClick={() => {setExpenses([...expenses, {...currentEntry, id: Date.now().toString()}]); setShowReviewForm(false);}} className="w-full bg-[#dc2626] text-white p-8 rounded-[2.5rem] shadow-2xl text-2xl mt-4 border-b-[10px] border-[#b91c1c]">Add to Report</button>
               </div>
