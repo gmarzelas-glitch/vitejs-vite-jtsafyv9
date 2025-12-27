@@ -71,7 +71,7 @@ export default function App() {
         const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(file);
       })];
       const result = await analyzeReceipt(imageList);
-      if (!result) throw new Error("AI fail");
+      if (!result) throw new Error("AI failed");
       
       const exists = expenses.find(exp => exp.merchantName === result.merchantName && exp.totalAmount === parseFloat(result.totalAmount));
       if (exists) setDuplicateWarning(true);
@@ -84,7 +84,7 @@ export default function App() {
         receiptImage: imageList[0]
       });
       setShowReviewForm(true);
-    } catch (err) { alert("AI Scan Error. Check Key."); } finally { setIsAnalyzing(false); }
+    } catch (err) { alert("Scan Error. Check console."); } finally { setIsAnalyzing(false); }
   };
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,7 +95,7 @@ export default function App() {
         const reader = new FileReader(); reader.onload = () => res(reader.result as string); reader.readAsDataURL(file);
       })];
       setSupportingDocs(prev => [...prev, ...images]);
-      alert("Attachment added.");
+      alert("Doc added.");
     } catch (err) { alert("Error adding doc."); }
   };
 
@@ -114,7 +114,7 @@ export default function App() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4 font-black italic uppercase">
             <div>
               <p className="text-[#dc2626] tracking-[0.3em] mb-2">Reporting Tool</p>
-              <h2 className="text-4xl lg:text-7xl tracking-tighter border-l-[15px] border-[#dc2626] pl-8 leading-none">Expenses <span className="text-slate-300">#{reportCounter}</span></h2>
+              <h2 className="text-4xl lg:text-7xl tracking-tighter border-l-[15px] border-[#dc2626] pl-8 leading-none text-[#0f172a]">Expenses <span className="text-slate-300">#{reportCounter}</span></h2>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
               <button onClick={() => document.getElementById('uInput')?.click()} className="flex-1 bg-[#dc2626] text-white px-8 py-5 rounded-[2rem] shadow-xl flex items-center justify-center gap-3">{isAnalyzing ? <Loader2 className="animate-spin" size={20}/> : <Camera size={20}/>} SCAN EXPENSE</button>
@@ -182,7 +182,7 @@ export default function App() {
         {showReviewForm && (
           <div className="fixed inset-0 bg-[#0f172a]/95 backdrop-blur-2xl z-50 flex items-center justify-center p-6 animate-in">
             <div className="bg-white rounded-[4rem] p-12 max-w-xl w-full border-t-[20px] border-[#dc2626] shadow-2xl relative font-black italic uppercase tracking-tighter">
-              {duplicateWarning && <div className="absolute top-[-60px] left-0 right-0 bg-yellow-400 p-4 rounded-2xl flex items-center gap-3 text-[10px] shadow-2xl animate-bounce"><AlertCircle size={20}/> Duplicate Entry!</div>}
+              {duplicateWarning && <div className="absolute top-[-60px] left-0 right-0 bg-yellow-400 p-4 rounded-2xl flex items-center gap-3 text-[10px] shadow-2xl animate-bounce"><AlertCircle size={20}/> Duplicate Entry Found!</div>}
               <div className="flex items-center justify-between mb-8"><h3 className="text-3xl text-[#0f172a]">Confirm Expense</h3><button onClick={() => setShowReviewForm(false)}><X size={32}/></button></div>
               <div className="space-y-4">
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200"><label className="text-[9px] text-slate-400 block mb-2">Merchant</label><input className="w-full bg-transparent outline-none text-2xl text-[#0f172a]" value={currentEntry.merchantName} onChange={e => setCurrentEntry({...currentEntry, merchantName: e.target.value.toUpperCase()})}/></div>
