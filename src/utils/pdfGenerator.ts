@@ -6,20 +6,13 @@ const toGreeklish = (text: string) => {
   return text ? text.split('').map(char => map[char] || char).join('') : "";
 };
 
-export const generatePDF = async (
-  expenses: Expense[], 
-  images: string[], 
-  user: User, 
-  reportId: string,
-  destination: string,
-  purpose: string
-) => {
+export const generatePDF = async (expenses: Expense[], images: string[], user: User, reportId: string, dest: string, purp: string) => {
   const doc = new jsPDF();
   const total = expenses.reduce((sum, e) => sum + e.totalAmount, 0);
   const formattedID = reportId.padStart(4, '0');
-  const categoryTotals = expenses.reduce((acc: any, exp: Expense) => {
-    const cat = toGreeklish(exp.category).toUpperCase();
-    acc[cat] = (acc[cat] || 0) + exp.totalAmount;
+  const catTotals = expenses.reduce((acc:any, e) => {
+    const c = toGreeklish(e.category).toUpperCase();
+    acc[c] = (acc[c] || 0) + e.totalAmount;
     return acc;
   }, {});
 
@@ -32,14 +25,14 @@ export const generatePDF = async (
   doc.setFontSize(10); doc.setFont('helvetica', 'bold');
   doc.text(`REPORT ID: #${formattedID}`, 195, 30, { align: 'right' });
 
-  // Identity
+  // Sidebar Data (Identity)
   doc.setFontSize(9);
   doc.text(`ACTIVE USER: ${toGreeklish(user.name).toUpperCase()}`, 15, 38);
   doc.text(`PROJECT: ${toGreeklish(localStorage.getItem('ddf_project') || 'N/A').toUpperCase()}`, 15, 44);
-  doc.text(`DESTINATION: ${toGreeklish(destination || 'N/A').toUpperCase()}`, 15, 50);
-  doc.text(`PURPOSE: ${toGreeklish(purpose || 'N/A').toUpperCase()}`, 15, 56);
+  doc.text(`DESTINATION: ${toGreeklish(dest || 'N/A').toUpperCase()}`, 15, 50);
+  doc.text(`PURPOSE: ${toGreeklish(purp || 'N/A').toUpperCase()}`, 15, 56);
 
-  // Metadata with space
+  // Spacing for Metadata
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
   doc.text(`GENERATED ON: ${new Date().toLocaleDateString('el-GR')}`, 15, 68); 
   doc.text(`TIMESTAMP: ${new Date().toLocaleTimeString('el-GR')}`, 15, 73);
@@ -51,7 +44,7 @@ export const generatePDF = async (
   doc.text('DATE', 18, y); doc.text('CATEGORY / VENDOR', 50, y); doc.text('AMOUNT (EUR)', 192, y, { align: 'right' });
 
   doc.setTextColor(15, 23, 42); y += 10;
-  expenses.forEach((e) => {
+  expenses.forEach(e => {
     if (y > 250) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'normal'); doc.text(e.date, 18, y);
     doc.setFont('helvetica', 'bold'); doc.text(toGreeklish(e.merchantName).toUpperCase(), 50, y);
@@ -61,28 +54,16 @@ export const generatePDF = async (
     y += 14;
   });
 
-  // Breakdown & Total
+  // Totals & Bank
   y += 5;
-  doc.setDrawColor(226, 232, 240); doc.line(120, y, 195, y);
-  y += 8; doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('CATEGORY BREAKDOWN:', 120, y);
-  y += 6;
-  Object.entries(categoryTotals).forEach(([cat, val]: any) => {
-    doc.setFont('helvetica', 'normal'); doc.text(`${cat}:`, 120, y);
-    doc.text(`${val.toFixed(2)}`, 195, y, { align: 'right' });
-    y += 5;
-  });
-
-  y += 5; doc.setFillColor(15, 23, 42); doc.rect(15, y, 180, 10, 'F');
-  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-  doc.text('GRAND TOTAL CLAIM', 20, y + 6.5);
+  doc.setFillColor(15, 23, 42); doc.rect(15, y, 180, 10, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text('GRAND TOTAL CLAIM', 20, y + 6.5);
   doc.text(`${total.toFixed(2)} EUR`, 192, y + 6.5, { align: 'right' });
 
-  // Bank Info
   y += 35; doc.setTextColor(15, 23, 42); doc.setFontSize(9);
   doc.text(`BANK: ${toGreeklish(user.bankName || 'N/A').toUpperCase()}`, 15, y);
   y += 6; doc.text(`IBAN: ${user.iban || 'PENDING'}`, 15, y);
 
-  // Attachments
   images.forEach((img, i) => {
     doc.addPage();
     doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 10, 'F');

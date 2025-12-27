@@ -2,37 +2,37 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-export async function analyzeReceipt(imageBase64: string) {
+export async function analyzeReceipt(imagesBase64: string[]) {
   try {
+    if (!API_KEY) throw new Error("Missing API Key");
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash-exp", 
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    // Μετατροπή όλων των σελίδων για το AI
+    const imageParts = imagesBase64.map(img => ({
+      inlineData: { 
+        data: img.includes(',') ? img.split(',')[1] : img, 
+        mimeType: "image/jpeg" 
+      }
+    }));
 
-    const prompt = `You are a Senior International Financial Auditor. 
-    Analyze this document (Invoice or Airline Ticket). 
+    const prompt = `Analyze ALL provided pages of this document. 
+    Find the ABSOLUTE FINAL TOTAL PAYABLE AMOUNT. 
+    On Aegean Invoices, DO NOT pick the fare (e.g. 201.00). Pick the final charged sum (e.g. 291.12).
+    
+    Extract:
+    1. merchantName: Full legal entity (e.g. AEGEAN AIRLINES S.A.)
+    2. date: YYYY-MM-DD
+    3. totalAmount: Final payable sum (number only)
+    4. category: One of [Meals, Transportation, Accommodation, Subscriptions & Memberships, Other Cost]
 
-    RULES:
-    1. merchantName: FULL LEGAL NAME (e.g., AEGEAN AIRLINES S.A.). 
-    2. date: Format YYYY-MM-DD.
-    3. totalAmount: CRITICAL! Look at the FINAL page for the "TOTAL PAYABLE" or "ΤΕΛΙΚΟ ΠΛΗΡΩΤΕΟ". 
-       - If you see a Fare of 201.00 and a Total Payable of 291.12, you MUST pick 291.12.
-       - NEVER pick intermediate fare amounts or sub-totals.
-    4. category: Strictly: Meals, Transportation, Accommodation, Subscriptions & Memberships, Other Cost.
+    Return JSON ONLY: {"merchantName": "...", "date": "...", "totalAmount": "...", "category": "..."}`;
 
-    Return ONLY a JSON object.`;
-
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
-    ]);
-
-    return JSON.parse(result.response.text());
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    return JSON.parse(response.text().replace(/```json|```/g, ""));
   } catch (error) {
-    console.error("Gemini OCR Error:", error);
+    console.error("AI Error:", error);
     return null;
   }
 }
