@@ -1,27 +1,25 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// src/services/gemini.ts
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+export type GeminiScanResult = {
+  merchantName: string;
+  date: string;
+  totalAmount: number;
+  category: string;
+};
 
-// Αν δεν υπάρχει key	at build/runtime (GitHub Pages/Hostinger), ΜΗΝ σκάει όλο το app.
-export async function analyzeReceipt(imagesBase64: string[]) {
-  if (!API_KEY) return null;
+export async function scanWithGemini(
+  _file: File
+): Promise<GeminiScanResult | null> {
+  // ❌ Gemini DISABLED on static hosting
+  // ✅ App must NOT crash
 
-  try {
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  console.warn("Gemini disabled (no API key). Returning mock data.");
 
-    const imageParts = imagesBase64.map((img) => ({
-      inlineData: { data: img.split(",")[1], mimeType: "image/jpeg" },
-    }));
-
-    const prompt = `Return JSON ONLY: {"merchantName":"...","date":"YYYY-MM-DD","totalAmount":"...","category":"Meals|Transportation|Accommodation|Subscriptions & Memberships|Other Cost"}`;
-
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const text = result.response.text().trim();
-    const clean = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
-  } catch (e) {
-    console.error("Gemini OCR Error:", e);
-    return null;
-  }
+  // ΕΠΙΣΤΡΕΦΟΥΜΕ SAFE MOCK
+  return {
+    merchantName: "MANUAL ENTRY",
+    date: new Date().toISOString().slice(0, 10),
+    totalAmount: 0,
+    category: "Other",
+  };
 }
