@@ -1,25 +1,33 @@
 // src/services/gemini.ts
 
-export type GeminiScanResult = {
-  merchantName: string;
+export type ScanResult = {
   date: string;
-  totalAmount: number;
   category: string;
+  vendor: string;
+  amount: number;
 };
 
-export async function scanWithGemini(
-  _file: File
-): Promise<GeminiScanResult | null> {
-  // ❌ Gemini DISABLED on static hosting
-  // ✅ App must NOT crash
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-  console.warn("Gemini disabled (no API key). Returning mock data.");
+// 👉 FAKE RESULT για static hosting
+const MOCK_RESULT: ScanResult = {
+  date: new Date().toISOString().slice(0, 10),
+  category: "OTHER",
+  vendor: "MANUAL ENTRY",
+  amount: 0,
+};
 
-  // ΕΠΙΣΤΡΕΦΟΥΜΕ SAFE MOCK
-  return {
-    merchantName: "MANUAL ENTRY",
-    date: new Date().toISOString().slice(0, 10),
-    totalAmount: 0,
-    category: "Other",
-  };
+export async function scanExpenseWithGemini(
+  _imageBase64: string
+): Promise<ScanResult> {
+  // ⛔ ΧΩΡΙΣ KEY → ΔΕΝ ΚΡΑΣΑΡΟΥΜΕ
+  if (!GEMINI_KEY) {
+    console.warn("Gemini disabled (no API key) – using mock result");
+    return MOCK_RESULT;
+  }
+
+  // ⛔ ΑΝ ΚΑΠΟΤΕ ΒΑΛΕΙΣ BACKEND
+  // εδώ μπαίνει κανονικό Gemini logic
+  // προς το παρόν:
+  return MOCK_RESULT;
 }
