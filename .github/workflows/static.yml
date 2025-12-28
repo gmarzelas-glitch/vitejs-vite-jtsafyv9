@@ -24,15 +24,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
-      - name: Install
-        run: npm ci
+      - name: Install dependencies
+        run: npm install
 
-      - name: Build
+      - name: Build project
         run: npm run build
 
-      - name: Upload artifact (dist)
+      - name: Upload dist folder
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
