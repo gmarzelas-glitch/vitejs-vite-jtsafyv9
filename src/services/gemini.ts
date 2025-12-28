@@ -1,61 +1,154 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) throw new Error("Missing VITE_GEMINI_API_KEY (.dev)");
 
-export async function analyzeReceipt(imagesBase64: string[]) {
+const genAI = new GoogleGenerativeAI(apiKey);
+
+export type ReceiptResult = {
+  merchantName: string | null;
+  date: string | null; // YYYY-MM-DD
+  totalAmount: number | null;
+  category:
+    | "Meals"
+    | "Transportation"
+    | "Accommodation"
+    | "Subscriptions & Memberships"
+    | "Other Cost"
+    | null;
+  documentNumber: string | null; // ✅ NEW
+};
+
+function cleanJson(text: string) {
+  return text.replace(/```json|```/g, "").trim();
+}
+
+function safeText(result: any): string {
+  const parts = result?.response?.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p: any) => (typeof p?.text === "string" ? p.text : "")).join("").trim();
+}
+
+async function pickWorkingModelId(): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) throw new Error(`ListModels failed: ${res.status} ${JSON.stringify(json)}`);
+
+  const models: any[] = json?.models ?? [];
+  const candidates = models.filter(
+    (m) =>
+      Array.isArray(m?.supportedGenerationMethods) &&
+      m.supportedGenerationMethods.includes("generateContent")
+  );
+  if (!candidates.length) throw new Error("No model supports generateContent.");
+
+  const score = (m: any) => {
+    const n = String(m?.name ?? "").toLowerCase();
+    if (n.includes("flash")) return 0;
+    if (n.includes("pro")) return 1;
+    if (n.includes("vision")) return 2;
+    return 3;
+  };
+
+  candidates.sort((a, b) => score(a) - score(b));
+  const fullName = String(candidates[0].name);
+  return fullName.startsWith("models/") ? fullName.slice("models/".length) : fullName;
+}
+
+let cachedModelId: string | null = null;
+
+const normDoc = (s: string | null | undefined) =>
+  (s ?? "").toString().trim().toUpperCase().replace(/\s+/g, "");
+
+function mergeResults(all: ReceiptResult[]): ReceiptResult {
+  const merchantName = all.map((x) => x.merchantName).find((v) => v && v.trim()) ?? null;
+  const date = all.map((x) => x.date).find((v) => v && v.trim()) ?? null;
+
+  const amounts = all
+    .map((x) => x.totalAmount)
+    .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+  const totalAmount = amounts.length ? Math.max(...amounts) : null;
+
+  const category = all.map((x) => x.category).find((v) => v) ?? null;
+
+  const documentNumber =
+    all.map((x) => x.documentNumber).find((v) => v && v.trim()) ?? null;
+
+  return {
+    merchantName,
+    date,
+    totalAmount,
+    category,
+    documentNumber: documentNumber ? normDoc(documentNumber) : null
+  };
+}
+
+export async function analyzeReceipt(imagesBase64: string[]): Promise<ReceiptResult | null> {
   try {
-    if (!API_KEY) throw new Error("API Key missing");
+    if (!cachedModelId) cachedModelId = await pickWorkingModelId();
+    const model = genAI.getGenerativeModel({ model: cachedModelId });
 
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `
+You are a Senior Financial Auditor.
 
-    // ΣΩΣΤΟ FORMAT ΜΕ PARTS (ISSUE 1 FIX)
-    const imageParts = imagesBase64.map(img => ({
-      inlineData: { 
-        data: img.includes(',') ? img.split(',')[1] : img, 
-        mimeType: "image/jpeg" 
+You will be given ONE PAGE IMAGE of a receipt/invoice (possibly multi-page overall).
+Extract ONLY what appears on THIS page.
+
+Return ONLY a raw JSON object with:
+{
+  "merchantName": string|null,
+  "date": "YYYY-MM-DD"|null,
+  "totalAmount": number|null,
+  "category": "Meals"|"Transportation"|"Accommodation"|"Subscriptions & Memberships"|"Other Cost"|null,
+  "documentNumber": string|null
+}
+
+Rules:
+- documentNumber = receipt/invoice number / "ΑΡ. ΠΑΡΑΣΤΑΤΙΚΟΥ" / "Αριθμός" / "No." / "Invoice No"
+- totalAmount = FINAL payable total IF it appears on this page, else null
+- No markdown. No text outside JSON.
+`.trim();
+
+    const perPage: ReceiptResult[] = [];
+
+    for (let i = 0; i < imagesBase64.length; i++) {
+      const img = imagesBase64[i];
+      const base64 = img.includes(",") ? img.split(",")[1] : img;
+
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: `${prompt}\n\nPAGE ${i + 1} / ${imagesBase64.length}` },
+              { inlineData: { data: base64, mimeType: "image/jpeg" } },
+            ],
+          },
+        ],
+      });
+
+      const text = safeText(result);
+      if (!text) continue;
+
+      const parsedText = cleanJson(text);
+
+      try {
+        const parsed = JSON.parse(parsedText) as ReceiptResult;
+
+        // normalize doc number
+        if (parsed.documentNumber) parsed.documentNumber = normDoc(parsed.documentNumber);
+
+        perPage.push(parsed);
+      } catch {
+        console.error("Invalid JSON on page", i + 1, parsedText);
       }
-    }));
-
-    const prompt = `Analyze ALL pages. Return a VALID JSON object. 
-    DO NOT include explanations or markdown. If info missing, use null.
-    
-    Fields:
-    1. merchantName: Full legal entity (e.g. AEGEAN AIRLINES S.A.).
-    2. date: YYYY-MM-DD.
-    3. totalAmount: FIND THE FINAL PAYABLE TOTAL. 
-       - Look for 'ΤΕΛΙΚΟ ΠΛΗΡΩΤΕΟ' or 'TOTAL PAYABLE'.
-       - Pick the absolute final charged sum (e.g. 291.12).
-    4. category: One of [Meals, Transportation, Accommodation, Subscriptions & Memberships, Other Cost].`;
-
-    const parts = [{ text: prompt }, ...imageParts];
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts }]
-    });
-
-    // ΑΣΦΑΛΕΣ PARSING (ISSUE 2 FIX)
-    const response = result.response;
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates from Gemini");
     }
 
-    const text = response.candidates[0].content.parts.map(p => p.text || "").join("").trim();
-    
-    // ΚΑΘΑΡΙΣΜΟΣ JSON (ISSUE 3 FIX)
-    const cleanJson = text.replace(/```json|```/g, "").trim();
-    
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("RAW OUTPUT ERROR:", text);
-      throw new Error("Invalid JSON returned");
-    }
+    if (!perPage.length) return null;
 
-    return parsed;
-  } catch (error) {
-    console.error("Gemini Critical Error:", error);
+    return mergeResults(perPage);
+  } catch (e) {
+    console.error("❌ Gemini analyzeReceipt error:", e);
     return null;
   }
 }

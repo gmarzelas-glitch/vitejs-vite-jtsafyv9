@@ -6,15 +6,18 @@ const toGreeklish = (text: string) => {
   return text ? text.split('').map(char => map[char] || char).join('') : "";
 };
 
-export const generatePDF = async (expenses: Expense[], images: string[], user: User, reportId: string, dest: string, purp: string) => {
+export const generatePDF = async (
+  expenses: Expense[],
+  images: string[],
+  user: User,
+  reportId: string,
+  dest: string,
+  purp: string
+) => {
   const doc = new jsPDF();
+
   const total = expenses.reduce((sum, e) => sum + e.totalAmount, 0);
   const formattedID = reportId.padStart(4, '0');
-  const catTotals = expenses.reduce((acc:any, e) => {
-    const c = toGreeklish(e.category).toUpperCase();
-    acc[c] = (acc[c] || 0) + e.totalAmount;
-    return acc;
-  }, {});
 
   // Header Banner
   doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 85, 'F');
@@ -34,7 +37,7 @@ export const generatePDF = async (expenses: Expense[], images: string[], user: U
 
   // Spacing for Metadata
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text(`GENERATED ON: ${new Date().toLocaleDateString('el-GR')}`, 15, 68); 
+  doc.text(`GENERATED ON: ${new Date().toLocaleDateString('el-GR')}`, 15, 68);
   doc.text(`TIMESTAMP: ${new Date().toLocaleTimeString('el-GR')}`, 15, 73);
 
   // Table
@@ -64,12 +67,41 @@ export const generatePDF = async (expenses: Expense[], images: string[], user: U
   doc.text(`BANK: ${toGreeklish(user.bankName || 'N/A').toUpperCase()}`, 15, y);
   y += 6; doc.text(`IBAN: ${user.iban || 'PENDING'}`, 15, y);
 
-  images.forEach((img, i) => {
+  // ✅ Attachments: same layout, but FIX type + aspect-fit (no crop)
+  const safeImages = (images || []).filter(Boolean);
+
+  safeImages.forEach((img, i) => {
     doc.addPage();
     doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 10, 'F');
     doc.setTextColor(255, 255, 255); doc.setFontSize(7);
     doc.text(`ATTACHMENT #${i + 1} - REPORT ID: ${formattedID}`, 105, 6.5, { align: 'center' });
-    doc.addImage(img, 'JPEG', 15, 15, 180, 250, undefined, 'FAST');
+
+    const isPng = img.startsWith('data:image/png');
+    const imgType = isPng ? 'PNG' : 'JPEG';
+
+    // target box (same as before area)
+    const boxX = 15;
+    const boxY = 15;
+    const boxW = 180;
+    const boxH = 250;
+
+    try {
+      const props = (doc as any).getImageProperties(img);
+      const iw = props.width;
+      const ih = props.height;
+
+      const r = Math.min(boxW / iw, boxH / ih);
+      const w = iw * r;
+      const h = ih * r;
+
+      const x = boxX + (boxW - w) / 2;
+      const y2 = boxY + (boxH - h) / 2;
+
+      doc.addImage(img, imgType, x, y2, w, h, undefined, 'FAST');
+    } catch {
+      // fallback: old behavior
+      doc.addImage(img, imgType, 15, 15, 180, 250, undefined, 'FAST');
+    }
   });
 
   doc.save(`DDF_Report_${formattedID}.pdf`);
