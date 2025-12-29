@@ -1,11 +1,4 @@
-// src/services/gemini.ts
-
-export async function scanWithGemini(_file: File) {
-  // static hosting safe stub
-  return {
-    date: "",
-    category: "",
-    vendor: "",
-    amount: ""
-  };
+export async function scanWithGemini(_: File) {
+  console.warn("Gemini disabled (static hosting)");
+  return null;
 }
